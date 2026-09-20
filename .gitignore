@@ -22,3 +22,9 @@ operations/
 CLAUDE.md
 GEMINI.md
 CODEX.md
+
+# Graphify Radar Derived Output
+graphify-out/
+.graphify_analysis.json
+.graphify_labels.json
+
