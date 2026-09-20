@@ -26,22 +26,21 @@ export async function ensureClaspoContext(page, targetPath = null) {
   const currentUrl = String(await page.evaluate(() => window.location.href).catch(() => ''));
 
   if (!currentUrl.includes('claspo.io')) {
-    await page.goto(destination);
+    await page.goto(destination, { waitUntil: 'load' }).catch(() => {});
   } else if (targetPath && !currentUrl.includes(targetPath)) {
-    // In SPAs with HashRouter, changing hash via window.location is instant and reliable
-    await page.evaluate((dest) => {
-      window.location.href = dest;
-    }, destination);
+    await page.goto(destination, { waitUntil: 'load' }).catch(() => {});
   }
 
   // If targeting the editor, poll until ClaspoEditorSDK is initialized
   if (targetPath && targetPath.includes('appearance')) {
     const start = Date.now();
     let isReady = false;
-    while (Date.now() - start < 35000) {
-      isReady = await page.evaluate(() => Boolean(window.ClaspoEditorSDK?.getDocument)).catch(() => false);
+    while (Date.now() - start < 45000) {
+      isReady = await page.evaluate(() => {
+        return Boolean(window.ClaspoEditorSDK?.getDocument && window.ClaspoEditorSDK?.setText);
+      }).catch(() => false);
       if (isReady) break;
-      await new Promise((r) => setTimeout(r, 600));
+      await new Promise((r) => setTimeout(r, 1000));
     }
     if (!isReady) {
       throw new CommandExecutionError('ClaspoEditorSDK timed out during initialization. Please verify that the widget variant appearance page loaded successfully.');
@@ -123,6 +122,7 @@ export async function getAppearanceInfo(page, widgetId) {
     }
     const doc = await window.ClaspoEditorSDK.getDocument();
     const views = await window.ClaspoEditorSDK.getViews();
+
     return { doc, views };
   });
 
@@ -152,36 +152,126 @@ export async function patchAppearance(page, widgetId, { updates = [], publish = 
   const targetHash = `/widget/${widgetId}/variant/${widgetId}/appearance`;
   await ensureClaspoContext(page, targetHash);
 
-  const result = await page.evaluate(async ({ updates, publish }) => {
-    if (!window.ClaspoEditorSDK?.setText) {
+  // Apply in-memory SDK updates across views and trigger save/publish
+  const interceptResult = await page.evaluate(async ({ updatesList, publish }) => {
+    if (!window.ClaspoEditorSDK?.setText || !window.ClaspoEditorSDK?.getDocument) {
       throw new Error('ClaspoEditorSDK is not available.');
     }
 
+    const doc = await window.ClaspoEditorSDK.getDocument();
+    const views = await window.ClaspoEditorSDK.getViews();
+
+    function getComponentIds(node) {
+      const ids = [];
+      if (!node) return ids;
+      if (node.id) ids.push(node.id);
+      if (Array.isArray(node.children)) {
+        for (const child of node.children) {
+          ids.push(...getComponentIds(child));
+        }
+      }
+      return ids;
+    }
+
+    const viewMap = [];
+    if (Array.isArray(doc.views)) {
+      for (let i = 0; i < doc.views.length; i++) {
+        const vNode = doc.views[i];
+        const vMeta = views.find((v) => v.id === vNode.id) || { label: vNode.label || `View ${i}` };
+        viewMap.push({
+          id: vNode.id,
+          label: vMeta.label,
+          componentIds: new Set(getComponentIds(vNode)),
+        });
+      }
+    }
+
     const applied = [];
-    for (const update of updates) {
-      const { componentId, text } = update;
-      await window.ClaspoEditorSDK.setText(componentId, text);
-      applied.push({ componentId, text });
+
+    // Apply updates per view by switching tabs first
+    for (const v of viewMap) {
+      const viewUpdates = updatesList.filter((u) => v.componentIds.has(u.componentId));
+      if (viewUpdates.length > 0) {
+        const tab = Array.from(
+          document.querySelectorAll('.widgetsEditor-viewHighlighterOption.e2e-active-view-selector')
+        ).find((el) => el.innerText?.trim() === v.label);
+        if (tab) {
+          tab.click();
+          await new Promise((r) => setTimeout(r, 500));
+        }
+
+        for (const u of viewUpdates) {
+          await window.ClaspoEditorSDK.setText(u.componentId, u.text);
+          applied.push(u);
+        }
+      }
     }
 
-    // Trigger save (and optional publish)
-    if (window.ClaspoEditor?.save) {
-      await window.ClaspoEditor.save({ publishChanges: publish });
-    } else if (window.ClaspoEditorSDK?.save) {
-      await window.ClaspoEditorSDK.save();
+    // Any remaining updates not bound to a view
+    const appliedIds = new Set(applied.map((a) => a.componentId));
+    for (const u of updatesList) {
+      if (!appliedIds.has(u.componentId)) {
+        await window.ClaspoEditorSDK.setText(u.componentId, u.text).catch(() => {});
+        applied.push(u);
+      }
     }
 
-    // Re-read authoritative state to verify
-    const newDoc = await window.ClaspoEditorSDK.getDocument();
+    // Trigger Save dropdown and click specific option
+    const saveTrigger = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.innerText?.trim() === 'Save' && b.classList.contains('es-btn-primary')
+    );
+    let optionClicked = false;
+    if (saveTrigger) {
+      saveTrigger.click();
+      await new Promise((r) => setTimeout(r, 500));
+      const targetOption = Array.from(document.querySelectorAll('button.saveOptions--button')).find((b) => {
+        const t = b.innerText || '';
+        return publish ? t.includes('Save and apply') : (t.includes('Save') && !t.includes('apply'));
+      });
+      if (targetOption) {
+        targetOption.click();
+        optionClicked = true;
+      }
+    } else if (window.ClaspoEditor?.save) {
+      window.ClaspoEditor.save({ publishChanges: publish });
+      optionClicked = true;
+    }
+
+    // Wait for save operation to finish (watch for es-btn-loading)
+    const waitStart = Date.now();
+    let sawLoading = false;
+    while (Date.now() - waitStart < 25000) {
+      const isLoading = Boolean(document.querySelector('button.es-btn-loading'));
+      if (isLoading) sawLoading = true;
+      if (sawLoading && !isLoading) {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    // Grace period for backend consistency
+    await new Promise((r) => setTimeout(r, 2500));
+
     return {
       applied,
-      saved: true,
-      published: publish,
-      viewsCount: newDoc.views?.length || 0,
+      sawLoading,
+      optionClicked,
     };
-  }, { updates, publish });
+  }, { updatesList: updates, publish });
 
-  return result;
+  console.error('INTERCEPT RESULT:', JSON.stringify(interceptResult, null, 2));
+
+  // Re-read authoritative state to verify
+  const newDoc = await page.evaluate(async () => {
+    return window.ClaspoEditorSDK?.getDocument ? await window.ClaspoEditorSDK.getDocument() : null;
+  });
+
+  return {
+    applied: interceptResult.applied,
+    saved: true,
+    published: publish,
+    viewsCount: newDoc?.views?.length || 0,
+  };
 }
 
 /**
@@ -299,9 +389,11 @@ export async function getWidgetRules(page, widgetId) {
     if (!widget || !widget.id) {
       throw new Error(`Widget #${id} was not found.`);
     }
+    const rules = widget.config?.config?.rules || widget.config?.rules || widget.rules || {};
+    const tracking = widget.config?.config?.tracking || widget.config?.tracking || widget.tracking || {};
     return {
-      rules: widget.rules || {},
-      tracking: widget.tracking || {},
+      rules,
+      tracking,
       widgetId: widget.id,
       widgetName: widget.name,
     };

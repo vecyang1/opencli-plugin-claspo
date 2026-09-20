@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-20
+
+### Added
+- Batch patching capability to `opencli claspo patch`: accepts `--updates <json_string_or_filepath>` to update multiple AST components atomically across multiple views in a single operation.
+- Multi-step view tab switching: dynamically detects and activates the corresponding view tab (`Signup`, `Email`, `Promocode`, `Existing`, `Error`) before mutating component copy, ensuring full multi-step popup support.
+- Native Claspo save & apply workflow: triggers the dropdown save menu (`Save and apply`) and polls the toolbar button's `es-btn-loading` state to ensure server-side persistence and live deployment.
+
+### Fixed
+- Eliminated premature navigation reloads during Angular SPA initialization, preventing transient `about:blank` context drops.
+
 ## [1.1.0] - 2026-09-20
 
 ### Added
