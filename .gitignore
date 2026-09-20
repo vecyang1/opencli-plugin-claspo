@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# System
+.DS_Store
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Logs & Debug
+*.log
+
+# Private Agent Governance (Local Only)
+VAULT.md
+progress.md
+task_plan.md
+handoff.md
+decisions.md
+operations/
+CLAUDE.md
+GEMINI.md
+CODEX.md

@@ -1,0 +1,33 @@
+{
+  "name": "opencli-plugin-claspo",
+  "version": "1.0.0",
+  "description": "Production-grade Claspo widget automation suite for OpenCLI: appearance component editing, multi-step extraction, targeting rules, and live publishing.",
+  "type": "module",
+  "main": "opencli-plugin.json",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "test": "node --check clis/claspo/*.js && node --test clis/claspo/commands.test.mjs",
+    "install-adapters": "bash scripts/install-adapters.sh"
+  },
+  "keywords": [
+    "opencli",
+    "opencli-plugin",
+    "claspo",
+    "popup",
+    "widget",
+    "cro",
+    "automation",
+    "agentic"
+  ],
+  "author": "Vec Yang",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vecyang1/opencli-plugin-claspo.git"
+  },
+  "peerDependencies": {
+    "@jackwener/opencli": ">=1.8.6"
+  }
+}
