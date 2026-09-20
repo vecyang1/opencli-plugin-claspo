@@ -4,7 +4,15 @@ import {
   normalizeWidgetId,
   formatWidgetRow,
   extractTextAndActionComponents,
+  formatRulesSummary,
+  formatAnalyticsRow,
 } from './_schema.js';
+import { deleteCommand } from './delete.js';
+import { renameCommand } from './rename.js';
+import { duplicateCommand } from './duplicate.js';
+import { rulesCommand } from './rules.js';
+import { analyticsCommand } from './analytics.js';
+
 
 describe('claspo _schema unit tests', () => {
   describe('normalizeWidgetId', () => {
@@ -110,4 +118,98 @@ describe('claspo _schema unit tests', () => {
       assert.equal(extracted[2].Field, 'email');
     });
   });
+
+  describe('formatRulesSummary', () => {
+    it('summarizes frequency, schedule, and targeting rules correctly', () => {
+      const mockRules = {
+        FREQUENCY: { predicates: [{ name: 'EVERY_TIME' }] },
+        SCHEDULE: { predicates: [{ params: { lengthFromTheStart: '15m', showAgainMode: 'AFTER_CLOSE' } }] },
+        TARGETING: {
+          schema: {
+            include: {
+              groups: [
+                {
+                  conditions: [
+                    { operand: { name: 'CURRENT_URL' }, operator: 'CONTAINS', value: '/checkout' },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      };
+      const mockTracking = {
+        trackers: [{ name: 'GA4' }, { name: 'MetaPixel' }],
+      };
+
+      const summary = formatRulesSummary(mockRules, mockTracking);
+      assert.equal(summary.Frequency, 'EVERY_TIME');
+      assert.equal(summary.TimerDuration, '15m');
+      assert.equal(summary.ShowAgainMode, 'AFTER_CLOSE');
+      assert.equal(summary.TargetingConditions.length, 1);
+      assert.equal(summary.TargetingConditions[0].target, 'CURRENT_URL');
+      assert.equal(summary.Trackers, 'GA4, MetaPixel');
+    });
+
+    it('falls back gracefully when rules are empty', () => {
+      const summary = formatRulesSummary({}, {});
+      assert.equal(summary.Frequency, 'DISABLED');
+      assert.equal(summary.TimerDuration, 'NONE');
+      assert.equal(summary.ShowAgainMode, 'N/A');
+      assert.equal(summary.TargetingConditions.length, 0);
+      assert.equal(summary.Trackers, 'None');
+    });
+  });
+
+  describe('formatAnalyticsRow', () => {
+    it('formats analytics numbers and conversion rate', () => {
+      const row = formatAnalyticsRow({
+        widgetId: 87240,
+        views: 250,
+        clicks: 50,
+        submits: 25,
+        targetActions: 30,
+        conversion: 10.0,
+      });
+      assert.equal(row.WidgetId, 87240);
+      assert.equal(row.Views, 250);
+      assert.equal(row.Clicks, 50);
+      assert.equal(row.Submissions, 25);
+      assert.equal(row.TargetActions, 30);
+      assert.equal(row.Conversion, '10.00%');
+    });
+  });
+
+  describe('OpenCLI Command Definitions & Safety Guards', () => {
+    it('verifies deleteCommand aborts without --yes flag', async () => {
+      assert.equal(deleteCommand.name, 'delete');
+      await assert.rejects(
+        async () => {
+          await deleteCommand.func(null, { 'widget-id': '87240', yes: false });
+        },
+        /--yes flag is required to delete/
+      );
+    });
+
+    it('verifies renameCommand requires widget-id and name', async () => {
+      assert.equal(renameCommand.name, 'rename');
+      await assert.rejects(
+        async () => {
+          await renameCommand.func(null, { 'widget-id': '87240', name: '  ' });
+        },
+        /Widget name cannot be empty/
+      );
+    });
+
+    it('verifies duplicateCommand, rulesCommand, and analyticsCommand metadata', () => {
+      assert.equal(duplicateCommand.name, 'duplicate');
+      assert.equal(duplicateCommand.site, 'claspo');
+      assert.equal(rulesCommand.name, 'rules');
+      assert.equal(rulesCommand.site, 'claspo');
+      assert.equal(analyticsCommand.name, 'analytics');
+      assert.equal(analyticsCommand.site, 'claspo');
+    });
+  });
 });
+
+

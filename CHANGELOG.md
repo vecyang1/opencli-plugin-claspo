@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-09-20
+
+### Added
+- Five new core subcommands expanding Claspo automation to full lifecycle and analytics:
+  - `opencli claspo rename <widgetId> <name>`: Rename an existing widget.
+  - `opencli claspo duplicate <widgetId> [--name <name>]`: Clone an existing widget and optionally assign a new name.
+  - `opencli claspo delete <widgetId> --yes`: Delete a widget, guarded by mandatory `--yes` flag to prevent accidental destruction of production assets.
+  - `opencli claspo rules <widgetId>`: Deep inspection of display frequency, countdown timers, show-again modes, and URL/targeting predicates.
+  - `opencli claspo analytics <widgetId>`: Live breakdown of impressions, clicks, submissions, target actions, and conversion rate.
+- Unit tests for targeting rules formatting, analytics formatting, and command safety assertions (12/12 passing).
+
 ## [1.0.1] - 2026-09-20
 
 ### Changed

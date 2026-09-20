@@ -1,15 +1,22 @@
 import { CommandExecutionError } from '@jackwener/opencli/errors';
-import { CLASPO_ORIGIN, formatWidgetRow, extractTextAndActionComponents } from './_schema.js';
+import {
+  CLASPO_ORIGIN,
+  formatWidgetRow,
+  extractTextAndActionComponents,
+  formatRulesSummary,
+  formatAnalyticsRow,
+} from './_schema.js';
 
-/**
- * Ensures the page is running on Claspo and SDKs are loaded.
- */
 /**
  * Ensures the page is running on Claspo and SDKs are loaded.
  */
 export async function ensureClaspoContext(page, targetPath = null) {
   if (!page || typeof page.evaluate !== 'function') {
     throw new CommandExecutionError('Claspo command requires an active OpenCLI Browser Bridge session.');
+  }
+
+  if (typeof page.setViewportSize === 'function') {
+    await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {});
   }
 
   const destination = targetPath
@@ -31,7 +38,7 @@ export async function ensureClaspoContext(page, targetPath = null) {
   if (targetPath && targetPath.includes('appearance')) {
     const start = Date.now();
     let isReady = false;
-    while (Date.now() - start < 20000) {
+    while (Date.now() - start < 35000) {
       isReady = await page.evaluate(() => Boolean(window.ClaspoEditorSDK?.getDocument)).catch(() => false);
       if (isReady) break;
       await new Promise((r) => setTimeout(r, 600));
@@ -43,7 +50,7 @@ export async function ensureClaspoContext(page, targetPath = null) {
     // For dashboard, wait for ClaspoDashboardSDK
     const start = Date.now();
     let isReady = false;
-    while (Date.now() - start < 10000) {
+    while (Date.now() - start < 15000) {
       isReady = await page.evaluate(() => Boolean(window.ClaspoDashboardSDK?.listWidgets)).catch(() => false);
       if (isReady) break;
       await new Promise((r) => setTimeout(r, 400));
@@ -201,4 +208,135 @@ export async function toggleWidgetPublish(page, widgetId, shouldPublish = true) 
   }, { id: widgetId, shouldPublish });
 
   return res;
+}
+
+/**
+ * Rename an existing widget.
+ */
+export async function renameWidget(page, widgetId, newName) {
+  await ensureClaspoContext(page);
+
+  const res = await page.evaluate(async ({ id, name }) => {
+    if (!window.ClaspoDashboardSDK?.renameWidget) {
+      throw new Error('ClaspoDashboardSDK.renameWidget is not available.');
+    }
+    await window.ClaspoDashboardSDK.renameWidget(id, name);
+    const updated = await window.ClaspoDashboardSDK.getWidget(id);
+    return {
+      id: updated.id,
+      name: updated.name,
+      status: updated.publishStatus,
+    };
+  }, { id: widgetId, name: newName });
+
+  return res;
+}
+
+/**
+ * Duplicate (clone) an existing widget.
+ */
+export async function duplicateWidget(page, widgetId, newName = null) {
+  await ensureClaspoContext(page);
+
+  const res = await page.evaluate(async ({ id, name }) => {
+    if (!window.ClaspoDashboardSDK?.copyWidget) {
+      throw new Error('ClaspoDashboardSDK.copyWidget is not available.');
+    }
+    const cloned = await window.ClaspoDashboardSDK.copyWidget(id);
+    const newId = cloned.formId || cloned.id;
+    if (!newId) {
+      throw new Error('Failed to determine cloned widget ID from response.');
+    }
+    if (name) {
+      await window.ClaspoDashboardSDK.renameWidget(newId, name);
+    }
+    const item = await window.ClaspoDashboardSDK.getWidget(newId);
+    return {
+      id: item.id,
+      name: item.name,
+      status: item.publishStatus,
+      copiedFrom: id,
+    };
+  }, { id: widgetId, name: newName });
+
+  return res;
+}
+
+/**
+ * Delete a widget.
+ */
+export async function deleteWidget(page, widgetId) {
+  await ensureClaspoContext(page);
+
+  const res = await page.evaluate(async (id) => {
+    if (!window.ClaspoDashboardSDK?.deleteWidget) {
+      throw new Error('ClaspoDashboardSDK.deleteWidget is not available.');
+    }
+    const existing = await window.ClaspoDashboardSDK.getWidget(id);
+    const widgetName = existing?.name || `Widget #${id}`;
+    await window.ClaspoDashboardSDK.deleteWidget(id);
+    return {
+      id,
+      name: widgetName,
+      deleted: true,
+    };
+  }, widgetId);
+
+  return res;
+}
+
+/**
+ * Retrieve targeting and schedule rules for a widget.
+ */
+export async function getWidgetRules(page, widgetId) {
+  await ensureClaspoContext(page);
+
+  const res = await page.evaluate(async (id) => {
+    if (!window.ClaspoDashboardSDK?.getWidget) {
+      throw new Error('ClaspoDashboardSDK.getWidget is not available.');
+    }
+    const widget = await window.ClaspoDashboardSDK.getWidget(id);
+    if (!widget || !widget.id) {
+      throw new Error(`Widget #${id} was not found.`);
+    }
+    return {
+      rules: widget.rules || {},
+      tracking: widget.tracking || {},
+      widgetId: widget.id,
+      widgetName: widget.name,
+    };
+  }, widgetId);
+
+  return {
+    WidgetId: res.widgetId,
+    WidgetName: res.widgetName,
+    Summary: formatRulesSummary(res.rules, res.tracking),
+    RawRules: res.rules,
+    RawTracking: res.tracking,
+  };
+}
+
+/**
+ * Retrieve performance analytics metrics for a widget.
+ */
+export async function getWidgetAnalytics(page, widgetId) {
+  await ensureClaspoContext(page);
+
+  const res = await page.evaluate(async (id) => {
+    if (!window.ClaspoDashboardSDK?.listWidgets) {
+      throw new Error('ClaspoDashboardSDK.listWidgets is not available.');
+    }
+    const raw = await window.ClaspoDashboardSDK.listWidgets();
+    const stat = raw.analytics?.find((a) => String(a.widgetId) === String(id));
+    const widget = raw.items?.find((w) => String(w.id) === String(id));
+    return {
+      stat: stat || { widgetId: id, views: 0, clicks: 0, submits: 0, conversion: 0 },
+      widgetName: widget?.name || `Widget #${id}`,
+    };
+  }, widgetId);
+
+  return {
+    ...formatAnalyticsRow(res.stat),
+    Name: res.widgetName,
+  };
 }
