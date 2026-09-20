@@ -1,6 +1,6 @@
 {
   "name": "opencli-plugin-claspo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Production-grade Claspo widget automation suite for OpenCLI: appearance component editing, multi-step extraction, targeting rules, and live publishing.",
   "type": "module",
   "main": "opencli-plugin.json",
@@ -8,7 +8,7 @@
     "node": ">=22.5.0"
   },
   "scripts": {
-    "test": "node --check clis/claspo/*.js && node --test clis/claspo/commands.test.mjs",
+    "test": "node --check *.js && node --test commands.test.mjs",
     "install-adapters": "bash scripts/install-adapters.sh"
   },
   "keywords": [

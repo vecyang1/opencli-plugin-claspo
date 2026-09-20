@@ -81,3 +81,50 @@ export function extractTextAndActionComponents(node, viewLabel = '') {
 
   return list;
 }
+
+/**
+ * Format targeting and schedule rules into structured summary.
+ */
+export function formatRulesSummary(rules = {}, tracking = {}) {
+  const frequency = rules.FREQUENCY?.predicates?.[0]?.name || (rules.FREQUENCY?.enabled ? 'ENABLED' : 'DISABLED');
+  const timer = rules.SCHEDULE?.predicates?.[0]?.params?.lengthFromTheStart || 'NONE';
+  const showAgain = rules.SCHEDULE?.predicates?.[0]?.params?.showAgainMode || 'N/A';
+
+  const targetingConditions = [];
+  const groups = rules.TARGETING?.schema?.include?.groups || [];
+  for (const g of groups) {
+    if (Array.isArray(g.conditions)) {
+      for (const c of g.conditions) {
+        targetingConditions.push({
+          target: c.operand?.name || 'TARGET',
+          operator: c.operator || 'EQUALS',
+          value: typeof c.value === 'object' && c.value !== null ? JSON.stringify(c.value) : String(c.value ?? 'ANY'),
+        });
+      }
+    }
+  }
+
+  const trackers = tracking?.trackers?.map((t) => t.name) || [];
+
+  return {
+    Frequency: frequency,
+    TimerDuration: timer,
+    ShowAgainMode: showAgain,
+    TargetingConditions: targetingConditions,
+    Trackers: trackers.join(', ') || 'None',
+  };
+}
+
+/**
+ * Format analytics object into human-readable metrics.
+ */
+export function formatAnalyticsRow(item = {}) {
+  return {
+    WidgetId: item.widgetId ?? 'N/A',
+    Views: item.views ?? 0,
+    Clicks: item.clicks ?? 0,
+    Submissions: item.submits ?? item.subscriptions ?? 0,
+    TargetActions: item.targetActions ?? 0,
+    Conversion: typeof item.conversion === 'number' ? `${item.conversion.toFixed(2)}%` : '0.00%',
+  };
+}

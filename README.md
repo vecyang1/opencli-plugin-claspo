@@ -3,7 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.5.0-brightgreen.svg)](package.json)
 [![OpenCLI Plugin](https://img.shields.io/badge/OpenCLI-Plugin-orange.svg)](https://github.com/jackwener/OpenCLI)
-[![Tests Pass](https://img.shields.io/badge/Tests-6%2F6%20Pass-success.svg)](clis/claspo/commands.test.mjs)
+[![Tests Pass](https://img.shields.io/badge/Tests-6%2F6%20Pass-success.svg)](commands.test.mjs)
 
 Production-grade [Claspo](https://claspo.io) widget and popup automation suite for [OpenCLI](https://github.com/jackwener/OpenCLI). Enables autonomous agents and developers to inspect targeting rules, extract multi-step appearance component trees, surgically update button/copy text, and publish widgets.
 
@@ -147,19 +147,16 @@ opencli claspo get 87240 -f json
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md
-├── clis
-│   └── claspo
-│       ├── README.md
-│       ├── _schema.js
-│       ├── _ui.js
-│       ├── appearance.js
-│       ├── commands.test.mjs
-│       ├── get.js
-│       ├── list.js
-│       ├── patch.js
-│       └── publish.js
+├── _schema.js
+├── _ui.js
+├── appearance.js
+├── commands.test.mjs
+├── get.js
+├── list.js
 ├── opencli-plugin.json
 ├── package.json
+├── patch.js
+├── publish.js
 └── scripts
     └── install-adapters.sh
 ```

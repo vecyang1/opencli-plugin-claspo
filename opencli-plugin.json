@@ -1,6 +1,6 @@
 {
   "name": "claspo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Production-grade Claspo widget automation suite for OpenCLI: appearance component editing, multi-step extraction, targeting rules, and live publishing.",
   "opencli": ">=1.8.6"
 }
