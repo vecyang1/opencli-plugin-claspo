@@ -214,8 +214,8 @@ describe('claspo _schema unit tests', () => {
     it('verifies diagnoseCommand metadata and argument validation', async () => {
       assert.equal(diagnoseCommand.name, 'diagnose');
       assert.equal(diagnoseCommand.site, 'claspo');
-      assert.equal(diagnoseCommand.strategy, 'ui');
-      assert.equal(diagnoseCommand.browser, true);
+      assert.equal(diagnoseCommand.strategy, 'local');
+      assert.equal(diagnoseCommand.browser, false);
       assert.deepEqual(diagnoseCommand.columns, [
         'Scope',
         'Url',
@@ -230,92 +230,17 @@ describe('claspo _schema unit tests', () => {
 
       await assert.rejects(
         async () => {
-          await diagnoseUrlClaspo(null, 'ftp://invalid-url');
+          await diagnoseUrlClaspo('ftp://invalid-url');
         },
         /valid http:\/\/ or https:\/\/ target URL is required/
       );
-    });
 
-    it('verifies diagnoseUrlClaspo evaluates and flags duplicate countdowns', async () => {
-      const mockPage = {
-        goto: async () => {},
-        wait: async () => {},
-        evaluate: async () => {
-          return {
-            url: 'https://example.com/quiz',
-            claspoScriptsCount: 1,
-            claspoScripts: ['https://scripts.claspo.io/scripts/87240.js'],
-            gtmScriptsCount: 1,
-            hasWidgetDom: true,
-            activeModalsCount: 1,
-            floatingTeasersCount: 1,
-            countdownsCount: 1,
-            hasClaspoObj: true,
-            isClaspoInited: true,
-            hasClConfig: true,
-            isGuardActive: false,
-            iframes: ['https://diagnose.example.com/embed/quiz'],
-          };
+      await assert.rejects(
+        async () => {
+          await diagnoseUrlClaspo('');
         },
-      };
-
-      const rows = await diagnoseUrlClaspo(mockPage, 'https://example.com/quiz', 0);
-      assert.equal(rows.length, 2);
-      assert.equal(rows[0].Scope, 'Main Window');
-      assert.equal(rows[0].ActiveModals, 1);
-      assert.equal(rows[0].Countdowns, 1);
-      // Because iframe also returned countdown 1, total countdowns = 2 -> ALERT
-      assert.equal(rows[0].Status, 'ALERT: MULTIPLE_COUNTDOWNS');
-    });
-
-    it('verifies diagnoseUrlClaspo detects clean guarded status', async () => {
-      let callCount = 0;
-      const mockPage = {
-        goto: async () => {},
-        wait: async () => {},
-        evaluate: async () => {
-          callCount++;
-          if (callCount === 1) {
-            return {
-              url: 'https://example.com/quiz',
-              claspoScriptsCount: 1,
-              claspoScripts: ['https://scripts.claspo.io/scripts/87240.js'],
-              gtmScriptsCount: 1,
-              hasWidgetDom: true,
-              activeModalsCount: 1,
-              floatingTeasersCount: 1,
-              countdownsCount: 1,
-              hasClaspoObj: true,
-              isClaspoInited: true,
-              hasClConfig: true,
-              isGuardActive: false,
-              iframes: ['https://diagnose.example.com/embed/quiz'],
-            };
-          }
-          return {
-            url: 'https://diagnose.example.com/embed/quiz',
-            claspoScriptsCount: 0,
-            claspoScripts: [],
-            gtmScriptsCount: 0,
-            hasWidgetDom: false,
-            activeModalsCount: 0,
-            floatingTeasersCount: 0,
-            countdownsCount: 0,
-            hasClaspoObj: true,
-            isClaspoInited: true,
-            hasClConfig: false,
-            isGuardActive: true,
-            iframes: [],
-          };
-        },
-      };
-
-      const rows = await diagnoseUrlClaspo(mockPage, 'https://example.com/quiz', 0);
-      assert.equal(rows.length, 2);
-      assert.equal(rows[0].Status, 'OK');
-      assert.equal(rows[1].Scope, 'Iframe [1]');
-      assert.equal(rows[1].Countdowns, 0);
-      assert.equal(rows[1].Status, 'CLEAN_GUARDED');
+        /valid http:\/\/ or https:\/\/ target URL is required/
+      );
     });
   });
 });

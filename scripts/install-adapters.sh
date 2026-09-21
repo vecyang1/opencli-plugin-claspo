@@ -17,6 +17,8 @@ mkdir -p "$DEST"
 find "$DEST" -type l -delete 2>/dev/null || true
 cp -p "$SRC"/*.js "$DEST/"
 cp -p "$SRC"/commands.test.mjs "$DEST/"
+mkdir -p "$DEST/scripts"
+cp -p "$SRC"/scripts/*.py "$DEST/scripts/" 2>/dev/null || true
 
 echo "[OK] Installed $(ls -1 "$DEST"/*.js | wc -l | tr -d ' ') adapters -> $DEST"
 opencli validate claspo
