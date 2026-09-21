@@ -13,7 +13,7 @@ export async function diagnoseUrlClaspo(page, targetUrl, waitSec = 5) {
 
   // 1. Navigate to target URL
   try {
-    await page.goto(cleanUrl, { waitUntil: 'load' });
+    await page.goto(cleanUrl, { waitUntil: 'none' });
   } catch (err) {
     throw new CommandExecutionError(`Failed to load target URL ${cleanUrl}: ${err.message}`);
   }
@@ -128,7 +128,7 @@ export async function diagnoseUrlClaspo(page, targetUrl, waitSec = 5) {
   for (let i = 0; i < candidateIframes.length; i++) {
     const iframeUrl = candidateIframes[i];
     try {
-      await page.goto(iframeUrl, { waitUntil: 'load' });
+      await page.goto(iframeUrl, { waitUntil: 'none' });
       await page.wait(Math.min(3, waitSec));
       let frameReport = await page.evaluate(inspectScript);
       if (typeof frameReport === 'string') {
