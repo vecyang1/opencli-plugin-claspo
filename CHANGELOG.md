@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-21
+
+### Added
+- Real-page multi-frame diagnostic command `opencli claspo diagnose <url> [--wait <sec>]`:
+  - Inspects target URL and embedded child iframes for injected Claspo scripts, active modals (`.cl-dialog`), floating teaser boxes (`.cl-floating-box`), and countdown badges.
+  - Automatically verifies whether the Zero-Trust iframe guard (`window.claspo.__inited = true`, `window._clConfig = null`) is active.
+  - Detects duplicate popups and duplicate countdown timer badges across main document and embedded frames (`ALERT: MULTIPLE_COUNTDOWNS`).
+  - Formatted tabular, JSON, YAML, and CSV output for seamless CI/CD and agentic verification.
+- Unit tests for `diagnoseCommand` metadata, argument validation, duplicate countdown detection, and clean guarded iframe states (15/15 passing).
+
 ## [1.2.0] - 2026-09-20
 
 ### Added
