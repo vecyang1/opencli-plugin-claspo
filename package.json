@@ -1,6 +1,6 @@
 {
   "name": "opencli-plugin-claspo",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Production-grade Claspo widget automation suite for OpenCLI: appearance component editing, multi-step extraction, targeting rules, and live publishing.",
   "type": "module",
   "main": "opencli-plugin.json",
